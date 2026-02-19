@@ -1,0 +1,592 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+// User role — controls access level throughout the app.
+// ADMIN can manage products, orders, users. CUSTOMER can shop.
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
+// Label for saved addresses. Used for display purposes only.
+enum AddressLabel {
+  HOME
+  WORK
+  OTHER
+}
+
+// Lifecycle state of a product.
+// DRAFT = not visible to customers. PUBLISHED = live in the store. ARCHIVED = soft-deleted.
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// Lifecycle state of an order, following the fulfillment flow:
+// PENDING → PAID → PROCESSING → SHIPPED → DELIVERED
+// Can also move to CANCELLED (before shipment), REFUNDED, or PARTIALLY_REFUNDED (after payment).
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+// How a coupon discount is calculated.
+// PERCENTAGE = % off subtotal, FIXED_AMOUNT = flat dollar off, FREE_SHIPPING = waives shipping cost.
+enum CouponDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SHIPPING
+}
+
+// Lifecycle state of a stock reservation made during checkout.
+// RESERVED = stock is held. CONFIRMED = order paid, stock deducted. CANCELLED = hold released.
+enum InventoryReservationStatus {
+  RESERVED
+  CONFIRMED
+  CANCELLED
+}
+
+// Lifecycle state of a refund request submitted by a customer.
+// PENDING → admin reviews → APPROVED or REJECTED.
+// APPROVED → Stripe refund API called → PROCESSING → Stripe webhook confirms → PROCESSED.
+enum RefundRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  PROCESSED
+}
+
+// The reason a customer provides when submitting a refund request.
+// Used by the admin to assess the request and enforce refund policies.
+enum RefundRequestReason {
+  DAMAGED
+  DEFECTIVE
+  WRONG_ITEM
+  NEVER_ARRIVED
+  OTHER
+}
+
+// Whether the refund covers the full order total or only a portion of it.
+// PARTIAL refunds are common when a customer returns some items but keeps others.
+enum RefundRequestType {
+  FULL
+  PARTIAL
+}
+
+// ============================================================
+// USERS & AUTH
+// ============================================================
+
+// Core user account. Supports both email/password and Google OAuth.
+// password_hash is null for Google-only users. google_id is null for email/password users.
+// A user can have one role: CUSTOMER (default) or ADMIN.
+model User {
+  id             String  @id @default(uuid())
+  google_id      String? @unique
+  avatar_url     String?
+  first_name     String
+  last_name      String
+  role           Role    @default(CUSTOMER)
+  email          String  @unique
+  email_verified Boolean @default(false)
+  password_hash  String?
+
+  // Relations
+  refresh_tokens  RefreshToken[]
+  addresses       Address[]
+  cart            Cart[]
+  orders          Order[]
+  reviews         Review[]
+  wishlists       Wishlist[]
+  refund_requests RefundRequest[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+// Stores hashed refresh tokens for JWT rotation.
+// When a user logs in, a refresh token is created here.
+// On each token refresh, the old record is deleted and a new one is created.
+// On logout, the record is deleted. Cascade ensures cleanup if the user is deleted.
+model RefreshToken {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  token_hash String
+  expires_at DateTime
+
+  created_at DateTime @default(now())
+
+  @@index([user_id])
+}
+
+// Saved delivery/billing addresses for a user.
+// is_default flags the address pre-selected at checkout.
+// Address data is stored here for management, but is snapshotted into Order.shipping_address
+// and Order.billing_address as JSON at checkout — so orders are never affected by future changes.
+model Address {
+  id            String        @id @default(uuid())
+  user_id       String
+  user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  label         AddressLabel? @default(HOME)
+  first_name    String
+  last_name     String
+  street_line_1 String
+  street_line_2 String?
+  city          String
+  province      String
+  postal_code   String
+  country       String
+  phone_number  String?
+  is_default    Boolean       @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
+}
+
+// ============================================================
+// PRODUCT CATALOG
+// ============================================================
+
+// Hierarchical product categories (e.g. Clothing > Men > T-Shirts).
+// parent_id is null for top-level categories. The self-relation "CategoryTree"
+// enables recursive nesting to any depth.
+model Category {
+  id          String     @id @default(uuid())
+  parent_id   String?
+  parent      Category?  @relation("CategoryTree", fields: [parent_id], references: [id])
+  children    Category[] @relation("CategoryTree")
+  name        String
+  slug        String     @unique
+  image_url   String?
+  position    Int        @default(0)
+  description String?
+
+  // Relations
+  products Product[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+// A product is the top-level item in the catalog (e.g. "Classic Crewneck T-Shirt").
+// It holds shared data like name, description, and base price.
+// The actual purchasable items are ProductVariants (e.g. Size M + Color Red).
+// compare_at_price enables "was $X, now $Y" sale displays.
+model Product {
+  id               String        @id @default(uuid())
+  name             String
+  slug             String        @unique
+  description      String?
+  base_price       Decimal
+  compare_at_price Decimal?
+  category_id      String
+  category         Category      @relation(fields: [category_id], references: [id])
+  status           ProductStatus @default(DRAFT)
+
+  // Relations
+  product_options  ProductOption[]
+  product_variants ProductVariant[]
+  images           ProductImage[]
+  reviews          Review[]
+  wishlists        Wishlist[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([category_id])
+  @@index([status])
+}
+
+// Images associated with a product. position controls display order.
+// The image with position 0 is typically used as the main thumbnail.
+model ProductImage {
+  id         String  @id @default(uuid())
+  product_id String
+  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  url        String
+  alt_text   String?
+  position   Int     @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([product_id])
+}
+
+// A product option defines an axis of variation (e.g. "Size" or "Color").
+// One product can have multiple options (e.g. Size + Color).
+// position controls the display order of options on the product page.
+model ProductOption {
+  id         String  @id @default(uuid())
+  product_id String
+  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  name       String
+  position   Int     @default(0)
+
+  // Relations
+  product_options_values ProductOptionValue[]
+
+  @@index([product_id])
+}
+
+// A specific value within a product option (e.g. "S", "M", "L" under the "Size" option).
+// position controls the display order of values in the selector UI.
+// Each value can be associated with many variants via VariantOptionValue.
+model ProductOptionValue {
+  id                String        @id @default(uuid())
+  product_option_id String
+  product_option    ProductOption @relation(fields: [product_option_id], references: [id], onDelete: Cascade)
+  value             String
+  position          Int           @default(0)
+
+  // Relations
+  variant_option_values VariantOptionValue[]
+
+  @@index([product_option_id])
+}
+
+// A variant is a specific, purchasable combination of option values
+// (e.g. Size: M + Color: Red). Each variant has its own SKU and stock count.
+// price overrides the product base_price if set (useful for size upcharges, etc).
+// low_stock_threshold triggers alerts when stock_quantity falls below it.
+model ProductVariant {
+  id                  String   @id @default(uuid())
+  product_id          String
+  product             Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  sku                 String   @unique
+  price               Decimal?
+  stock_quantity      Int      @default(0)
+  low_stock_threshold Int      @default(5)
+  weight_grams        Float?
+  is_active           Boolean  @default(true)
+
+  // Relations
+  variant_option_values  VariantOptionValue[]
+  cart_items             CartItem[]
+  order_items            OrderItem[]
+  inventory_reservations InventoryReservation[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([product_id])
+}
+
+// Junction table linking a variant to its selected option values.
+// E.g. variant "SKU-001" → [Size: M, Color: Red].
+// Composite PK prevents duplicate assignments.
+model VariantOptionValue {
+  variant_id      String
+  variant         ProductVariant    @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+  option_value_id String
+  option_value    ProductOptionValue @relation(fields: [option_value_id], references: [id], onDelete: Cascade)
+
+  @@id([variant_id, option_value_id])
+}
+
+// ============================================================
+// CART
+// ============================================================
+
+// A shopping cart belongs to either a logged-in user (user_id) or a guest (session_id).
+// When a guest logs in, their guest cart is merged into their user cart.
+// The full cart object is also cached in Redis for fast reads.
+model Cart {
+  id         String  @id @default(uuid())
+  user_id    String?
+  user       User?   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  session_id String?
+
+  // Relations
+  cart_items CartItem[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
+  @@index([session_id])
+}
+
+// A single line item in a cart, linking a cart to a specific variant.
+// The unique constraint on [cart_id, product_variant_id] prevents duplicate entries —
+// adding the same variant twice increases quantity instead of creating a new row.
+model CartItem {
+  id                 String         @id @default(uuid())
+  cart_id            String
+  cart               Cart           @relation(fields: [cart_id], references: [id], onDelete: Cascade)
+  product_variant_id String
+  product_variant    ProductVariant @relation(fields: [product_variant_id], references: [id], onDelete: Cascade)
+  quantity           Int            @default(1)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([cart_id, product_variant_id])
+}
+
+// ============================================================
+// ORDERS
+// ============================================================
+
+// An order is created after a successful Stripe payment.
+// Key design decisions:
+//   - shipping_address and billing_address are stored as JSON snapshots, not FK references.
+//     This ensures the order always reflects what was true at purchase time, even if the
+//     user later edits or deletes their saved addresses.
+//   - All price fields (subtotal, tax, shipping, discount, total) are calculated server-side
+//     and stored here. Never trust client-provided totals.
+//   - stripe_payment_intent_id links to the Stripe payment for reconciliation and refunds.
+//   - coupon_id is nullable — if the coupon is later deleted, SetNull keeps the order intact.
+//   - Timestamp fields (paid_at, shipped_at, etc.) record when each status transition happened.
+model Order {
+  id                       String      @id @default(uuid())
+  order_number             String      @unique
+  user_id                  String?
+  user                     User?       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  coupon_id                String?
+  coupon                   Coupon?     @relation(fields: [coupon_id], references: [id], onDelete: SetNull)
+  stripe_payment_intent_id String?
+  stripe_charge_id         String?
+  status                   OrderStatus @default(PENDING)
+  shipping_address         Json
+  billing_address          Json
+  subtotal_price           Decimal
+  shipping_price           Decimal
+  tax_price                Decimal
+  discount_price           Decimal
+  total_price              Decimal
+  notes                    String?
+  paid_at                  DateTime?
+  shipped_at               DateTime?
+  delivered_at             DateTime?
+  cancelled_at             DateTime?
+  tracking_number          String?
+  carrier_name             String?
+  tracking_url             String?
+
+  // Relations
+  order_items            OrderItem[]
+  order_events           OrderEvent[]
+  inventory_reservations InventoryReservation[]
+  refund_request         RefundRequest[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([user_id])
+  @@index([status])
+}
+
+// A line item within an order. Stores a snapshot of the variant's data at purchase time
+// (product_name, variant_description, sku, image_url) so that the order history remains
+// accurate even if the product is later edited or deleted.
+model OrderItem {
+  id                  String         @id @default(uuid())
+  order_id            String
+  order               Order          @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  variant_id          String
+  variant             ProductVariant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+  product_name        String
+  variant_description String
+  sku                 String
+  image_url           String?
+  quantity            Int
+  price               Decimal
+  total_price         Decimal
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([order_id])
+}
+
+// Audit log for an order. Every significant change to an order
+// (status update, refund issued, note added) is recorded here as an immutable event.
+// event_type is a string (e.g. 'status_changed', 'refund_issued').
+// event_data holds event-specific payload as JSON.
+// created_by is the user ID (admin or customer) who triggered the event.
+model OrderEvent {
+  id         String  @id @default(uuid())
+  order_id   String
+  order      Order   @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  event_type String
+  event_data Json?
+  created_by String?
+
+  created_at DateTime @default(now())
+
+  @@index([order_id])
+}
+
+// ============================================================
+// REVIEWS
+// ============================================================
+
+// A product review left by a customer.
+// The unique constraint on [product_id, user_id] enforces one review per product per user.
+// is_verified is set to true when the reviewer has a completed order containing this product.
+// title + body are both optional — a star rating alone is a valid review.
+model Review {
+  id          String  @id @default(uuid())
+  product_id  String
+  product     Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  user_id     String
+  user        User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  rating      Int
+  is_verified Boolean @default(false)
+  title       String?
+  body        String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([product_id, user_id])
+  @@index([product_id])
+}
+
+// ============================================================
+// COUPONS
+// ============================================================
+
+// A discount code that can be applied at checkout.
+// uses_count is incremented each time the coupon is used. When it reaches max_uses, the code is rejected.
+// min_order_amount sets a minimum cart value required to apply the coupon.
+// max_discount caps the discount for PERCENTAGE type (e.g. "20% off, up to $30 max").
+// starts_at / expiry_date allow scheduling promotions in advance.
+// Deleting a coupon sets coupon_id to null on existing orders (SetNull) — orders are never deleted as a side effect.
+model Coupon {
+  id               String            @id @default(uuid())
+  code             String            @unique
+  discount_type    CouponDiscountType
+  discount_value   Decimal
+  max_uses         Int               @default(1)
+  uses_count       Int               @default(0)
+  min_order_amount Decimal           @default(0)
+  max_discount     Decimal           @default(0)
+  is_active        Boolean           @default(true)
+  starts_at        DateTime?
+  expiry_date      DateTime
+
+  // Relations
+  orders Order[]
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+// ============================================================
+// WISHLIST
+// ============================================================
+
+// A saved product for a user. The unique constraint on [user_id, product_id]
+// prevents the same product from being saved twice.
+model Wishlist {
+  id         String  @id @default(uuid())
+  user_id    String
+  user       User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  product_id String
+  product    Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+
+  @@unique([user_id, product_id])
+}
+
+// ============================================================
+// INVENTORY
+// ============================================================
+
+// Temporarily holds stock during checkout to prevent overselling.
+// Flow:
+//   1. Customer starts checkout → reservation created (status: RESERVED, order_id: null)
+//   2. expires_at is set 15 minutes ahead — a cron job releases expired reservations
+//   3. Payment succeeds → order created, reservation linked (order_id set, status: CONFIRMED)
+//   4. Payment fails or times out → reservation released (status: CANCELLED), stock freed
+// session_id identifies guest users who don't have a user account yet.
+// The compound index on [status, expires_at] makes the cleanup cron job efficient.
+model InventoryReservation {
+  id                 String                     @id @default(uuid())
+  product_variant_id String
+  product_variant    ProductVariant             @relation(fields: [product_variant_id], references: [id], onDelete: Cascade)
+  order_id           String?
+  order              Order?                     @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  session_id         String?
+  status             InventoryReservationStatus
+  quantity           Int
+  expires_at         DateTime
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([product_variant_id])
+  @@index([status, expires_at])
+}
+
+// ============================================================
+// REFUNDS
+// ============================================================
+
+// A refund request submitted by a customer from their order detail page.
+// Flow:
+//   1. Customer submits request (status: PENDING) with a reason and optional notes
+//   2. Admin reviews and either APPROVES or REJECTS with admin_notes explaining the decision
+//   3. On approval, the Stripe refund API is called → status moves to PROCESSING
+//   4. Stripe sends a charge.refunded webhook → status moves to PROCESSED, processed_at is set
+//   5. Order status is updated to REFUNDED or PARTIALLY_REFUNDED
+//
+// Key design decisions:
+//   - stripe_refund_id is stored once Stripe confirms the refund — used for idempotency so that
+//     duplicate webhooks from Stripe don't process the same refund twice.
+//   - refund_amount is what actually gets refunded (may differ from order total for partial refunds).
+//   - user_id is stored directly for query convenience (find all requests by user without joining through orders).
+//   - Inventory restoration is a separate admin action — not automatic on refund,
+//     because whether stock is restocked depends on the condition of the returned item.
+model RefundRequest {
+  id               String              @id @default(uuid())
+  user_id          String
+  user             User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  order_id         String
+  order            Order               @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  user_reason      RefundRequestReason
+  user_notes       String?
+  refund_type      RefundRequestType
+  refund_amount    Decimal
+  status           RefundRequestStatus @default(PENDING)
+  admin_notes      String?
+  stripe_refund_id String?
+  processed_at     DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([order_id])
+  @@index([user_id])
+  @@index([status])
+}
