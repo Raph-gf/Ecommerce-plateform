@@ -117,6 +117,7 @@ export class AuthService {
 
       return { user, access_token, refresh_token };
     } catch (error) {
+      console.error(error);
       if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException('Failed to register user');
     }
@@ -138,6 +139,10 @@ export class AuthService {
       });
 
       if (!user) {
+        throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+      }
+
+      if (!user.email) {
         throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
       }
 
@@ -172,6 +177,7 @@ export class AuthService {
         refresh_token,
       };
     } catch (error) {
+      console.error(error);
       if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException('Failed to sign in');
     }
