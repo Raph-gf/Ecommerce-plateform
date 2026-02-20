@@ -263,4 +263,17 @@ export class AuthService {
       throw new InternalServerErrorException('Failed to refresh token');
     }
   }
+
+  async getUserProfile(userId: string): Promise<Omit<User, 'password_hash'>> {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      omit: { password_hash: true },
+    });
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+    return user as Omit<User, 'password_hash'>;
+  }
 }

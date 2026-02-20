@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpException,
   HttpStatus,
   Post,
@@ -96,5 +97,13 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     return { access_token };
+  }
+
+  @Get('profile/me')
+  @ResponseMessage('User profile fetched successfully')
+  async getUserProfile(
+    @CurrentUser('userId') userId: string,
+  ): Promise<Omit<User, 'password_hash'>> {
+    return await this.authService.getUserProfile(userId);
   }
 }
