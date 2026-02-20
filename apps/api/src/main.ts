@@ -10,7 +10,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor(new Reflector()));
+
   await app.listen(process.env.PORT ?? 3000);
-  console.log('CWD', process.cwd());
 }
 bootstrap();

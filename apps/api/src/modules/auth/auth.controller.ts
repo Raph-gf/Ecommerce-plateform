@@ -5,10 +5,12 @@ import type { Response } from 'express';
 import { LoginDto } from './dto/login.dto.js';
 import { ResponseMessage } from '../../common/decorator/response-message.decorator.js';
 import { User } from '../../../generated/prisma/client.js';
+import { Public } from '../../common/decorator/public.decorator.js';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+  @Public()
   @Post('register')
   @ResponseMessage('User registered successfully')
   async register(
@@ -31,7 +33,7 @@ export class AuthController {
     });
     return { user, access_token };
   }
-
+  @Public()
   @Post('login')
   @ResponseMessage('User logged in successfully')
   async login(
