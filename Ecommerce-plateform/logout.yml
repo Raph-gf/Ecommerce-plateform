@@ -1,0 +1,20 @@
+info:
+  name: logout
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: http://localhost:3000/auth/logout
+  body:
+    type: json
+    data: ""
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlNjQ3MjUzYS01YzAxLTQ0YzktODhjYS0wNDNiYjYzOTQyMDYiLCJlbWFpbCI6ImVtZWx5bmVAZWNvbS5jb20iLCJyb2xlIjoiQ1VTVE9NRVIiLCJpYXQiOjE3NzE2MTc2MjcsImV4cCI6MTc3MTYyMTIyN30.vWyftky3gOnDqbPhWbiyGuzmWvm0tFYhAk8kFJXGXpQ
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

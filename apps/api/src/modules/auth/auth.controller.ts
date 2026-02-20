@@ -1,11 +1,20 @@
-import { Body, Controller, Post, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpException,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto.js';
 import { AuthService } from './auth.service.js';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { LoginDto } from './dto/login.dto.js';
 import { ResponseMessage } from '../../common/decorator/response-message.decorator.js';
 import { User } from '../../../generated/prisma/client.js';
 import { Public } from '../../common/decorator/public.decorator.js';
+import { CurrentUser } from '../../common/decorator/current-user-decorator.js';
 
 @Controller('auth')
 export class AuthController {
@@ -51,5 +60,41 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     return { user, access_token };
+  }
+
+  @Post('logout')
+  @ResponseMessage('User logged out successfully')
+  async logout(
+    @CurrentUser('userId') userId: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.authService.signOut(userId);
+    response.clearCookie('refresh_token');
+  }
+
+  @Post('refresh')
+  @Public()
+  @ResponseMessage('Token refreshed successfully')
+  async refresh(
+    @Res({ passthrough: true }) response: Response,
+    @Req()
+    request: Request,
+  ): Promise<{ access_token: string }> {
+    if (
+      !request.cookies['refresh_token'] ||
+      request.cookies['refresh_token'] === ''
+    ) {
+      throw new HttpException('No refresh token', HttpStatus.UNAUTHORIZED);
+    }
+    const { access_token, refresh_token } = await this.authService.refresh(
+      request.cookies.refresh_token as string,
+    );
+    response.cookie('refresh_token', refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+    return { access_token };
   }
 }

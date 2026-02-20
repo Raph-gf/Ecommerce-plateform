@@ -68,9 +68,54 @@ export class AuthService {
       data: {
         user_id: userId,
         token_hash,
-        expires_at: new Date(Date.now() + 1000 * 60 * 60 * 60), // 1 hour
+        expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days
       },
     });
+  }
+
+  private async deleteRefreshToken(
+    userId: string,
+    refresh_token: string,
+  ): Promise<User> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+        include: {
+          refresh_tokens: true,
+        },
+      });
+
+      if (!user) {
+        throw new HttpException(
+          'Invalid refresh token',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      let token_found = false;
+
+      for (const tokens of user.refresh_tokens) {
+        const userTokens = await compare(refresh_token, tokens.token_hash);
+        if (userTokens) {
+          await this.prisma.refreshToken.delete({ where: { id: tokens.id } });
+          token_found = true;
+          break;
+        }
+      }
+      if (!token_found) {
+        throw new HttpException(
+          'Invalid refresh token',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+      return user;
+    } catch (error) {
+      console.error(error);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException('Failed to delete refresh token');
+    }
   }
 
   async register(
@@ -142,10 +187,6 @@ export class AuthService {
         throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
       }
 
-      if (!user.email) {
-        throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
-      }
-
       if (user.password_hash === null) {
         throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
       }
@@ -180,6 +221,46 @@ export class AuthService {
       console.error(error);
       if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException('Failed to sign in');
+    }
+  }
+
+  async signOut(userId: string): Promise<void> {
+    await this.prisma.refreshToken.deleteMany({
+      where: {
+        user_id: userId,
+      },
+    });
+  }
+
+  async refresh(refresh_token: string): Promise<{
+    access_token: string;
+    refresh_token: string;
+  }> {
+    try {
+      const decoded = await this.jwtService.verifyAsync(refresh_token, {
+        secret: this.configService.get('JWT_REFRESH_SECRET'),
+      });
+
+      const user = await this.deleteRefreshToken(
+        decoded.sub as string,
+        refresh_token,
+      );
+
+      const access_token = await this.generateAccessToken(
+        user.id,
+        user.email,
+        user.role,
+      );
+
+      const new_refresh_token = await this.generateRefreshToken(user.id);
+
+      await this.saveRefreshToken(user.id, new_refresh_token);
+
+      return { access_token, refresh_token: new_refresh_token };
+    } catch (error) {
+      console.error(error);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException('Failed to refresh token');
     }
   }
 }
