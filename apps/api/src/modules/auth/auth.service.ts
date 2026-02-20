@@ -23,14 +23,14 @@ export class AuthService {
   ) {}
 
   private async hashPassword(password: string): Promise<string> {
-    return (await hash(password, SALT_ROUNDS)) as string;
+    return await hash(password, SALT_ROUNDS);
   }
 
   private async comparePassword(
     password: string,
     password_hash: string,
   ): Promise<boolean> {
-    return (await compare(password, password_hash)) as boolean;
+    return await compare(password, password_hash);
   }
 
   private async generateAccessToken(
@@ -62,7 +62,7 @@ export class AuthService {
     userId: string,
     refresh_token: string,
   ): Promise<void> {
-    const token_hash = (await hash(refresh_token, SALT_ROUNDS)) as string;
+    const token_hash = await hash(refresh_token, SALT_ROUNDS);
 
     await this.prisma.refreshToken.create({
       data: {

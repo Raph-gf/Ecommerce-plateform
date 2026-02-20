@@ -16,11 +16,13 @@ import { ResponseMessage } from '../../common/decorator/response-message.decorat
 import { User } from '../../../generated/prisma/client.js';
 import { Public } from '../../common/decorator/public.decorator.js';
 import { CurrentUser } from '../../common/decorator/current-user-decorator.js';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
   @Public()
+  @Throttle({ short: { ttl: 300_000, limit: 10 } })
   @Post('register')
   @ResponseMessage('User registered successfully')
   async register(
@@ -44,6 +46,7 @@ export class AuthController {
     return { user, access_token };
   }
   @Public()
+  @Throttle({ short: { ttl: 300_000, limit: 10 } })
   @Post('login')
   @ResponseMessage('User logged in successfully')
   async login(
