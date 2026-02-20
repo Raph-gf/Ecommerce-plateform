@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Backend Concepts — E-Commerce Platform</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --sidebar-bg: #111111;
+      --border: #1f1f1f;
+      --text: #ededed;
+      --text-muted: #888;
+      --text-dim: #555;
+      --accent: #7c3aed;
+      --accent-light: #a78bfa;
+      --accent-glow: rgba(124, 58, 237, 0.15);
+      --code-bg: #161616;
+      --code-border: #2a2a2a;
+      --tag-bg: #1a1a2e;
+      --tag-text: #a78bfa;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --sidebar-width: 280px;
+      --font-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    aside {
+      width: var(--sidebar-width);
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+      padding: 0 0 40px;
+      z-index: 100;
+    }
+
+    .sidebar-header {
+      padding: 24px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--sidebar-bg);
+      z-index: 1;
+    }
+
+    .sidebar-header .logo {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .sidebar-header h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 4px;
+    }
+
+    .sidebar-section {
+      padding: 20px 12px 8px;
+    }
+
+    .sidebar-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      padding: 0 8px;
+      margin-bottom: 4px;
+    }
+
+    .sidebar-link {
+      display: block;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: all 0.15s;
+      cursor: pointer;
+    }
+
+    .sidebar-link:hover {
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+    }
+
+    .sidebar-link.active {
+      background: var(--accent-glow);
+      color: var(--accent-light);
+    }
+
+    /* ── Main ── */
+    main {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      max-width: 860px;
+      padding: 60px 64px 120px;
+    }
+
+    /* ── Page Header ── */
+    .page-header {
+      margin-bottom: 56px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .page-header .badge {
+      display: inline-block;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+      border: 1px solid rgba(124,58,237,0.3);
+    }
+
+    .page-header h1 {
+      font-size: 36px;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .page-header p {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 560px;
+    }
+
+    /* ── Sections ── */
+    section {
+      margin-bottom: 72px;
+      scroll-margin-top: 24px;
+    }
+
+    section h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    section h2 .section-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: var(--accent-glow);
+      border: 1px solid rgba(124,58,237,0.4);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-light);
+      flex-shrink: 0;
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 28px 0 12px;
+    }
+
+    p { color: #ccc; margin-bottom: 16px; }
+
+    /* ── Code Blocks ── */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      border-radius: 10px;
+      padding: 20px 24px;
+      overflow-x: auto;
+      margin: 16px 0 20px;
+      position: relative;
+    }
+
+    pre code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.7;
+      color: #e2e8f0;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #a78bfa;
+    }
+
+    pre code { background: none; border: none; padding: 0; color: #e2e8f0; }
+
+    /* Syntax colors */
+    .kw { color: #c084fc; }   /* keyword */
+    .fn { color: #60a5fa; }   /* function */
+    .str { color: #86efac; }  /* string */
+    .cm { color: #555; font-style: italic; } /* comment */
+    .dec { color: #f59e0b; }  /* decorator */
+    .num { color: #fb923c; }  /* number */
+    .type { color: #67e8f9; } /* type */
+
+    /* ── Tables ── */
+    .table-wrap { overflow-x: auto; margin: 16px 0 24px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+
+    th {
+      background: #161616;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 10px 16px;
+      border-bottom: 1px solid #1a1a1a;
+      color: #ccc;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    table { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+
+    /* ── Callout Boxes ── */
+    .callout {
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 20px 0;
+      display: flex;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .callout-body { flex: 1; }
+    .callout-body strong { display: block; margin-bottom: 4px; }
+    .callout-body p { margin: 0; }
+
+    .callout.info {
+      background: rgba(96, 165, 250, 0.08);
+      border: 1px solid rgba(96, 165, 250, 0.2);
+      color: #93c5fd;
+    }
+
+    .callout.warning {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      color: #fcd34d;
+    }
+
+    .callout.danger {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+    }
+
+    .callout.success {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+    }
+
+    /* ── Flow Diagram ── */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin: 20px 0;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .flow-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 20px;
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      border-bottom: none;
+      transition: background 0.15s;
+    }
+
+    .flow-item:first-child { border-radius: 10px 10px 0 0; }
+    .flow-item:last-child { border-bottom: 1px solid var(--code-border); border-radius: 0 0 10px 10px; }
+    .flow-item:hover { background: #1c1c1c; }
+
+    .flow-step {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-light);
+      width: 24px;
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    .flow-label {
+      font-weight: 600;
+      color: var(--text);
+      min-width: 180px;
+    }
+
+    .flow-desc { color: var(--text-muted); font-size: 12px; font-family: sans-serif; }
+
+    /* ── Summary Cards ── */
+    .endpoint-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 16px 0;
+    }
+
+    .endpoint-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      border-radius: 8px;
+    }
+
+    .method {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 5px;
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      margin-top: 1px;
+    }
+
+    .method.post { background: rgba(245,158,11,0.15); color: #fcd34d; }
+    .method.get  { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+
+    .endpoint-path {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .endpoint-desc { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+
+    /* ── Divider ── */
+    hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+<aside>
+  <div class="sidebar-header">
+    <div class="logo">E-Commerce Platform</div>
+    <h2>Backend Concepts</h2>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">NestJS Core</div>
+    <a class="sidebar-link" href="#modules">Modules</a>
+    <a class="sidebar-link" href="#controllers">Controllers</a>
+    <a class="sidebar-link" href="#services">Services & DI</a>
+    <a class="sidebar-link" href="#lifecycle">Request Lifecycle</a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Authentication</div>
+    <a class="sidebar-link" href="#passwords">Password Hashing</a>
+    <a class="sidebar-link" href="#jwt">JWT Tokens</a>
+    <a class="sidebar-link" href="#tokens">Access vs Refresh</a>
+    <a class="sidebar-link" href="#rotation">Token Rotation</a>
+    <a class="sidebar-link" href="#cookies">Cookie Storage</a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">NestJS Building Blocks</div>
+    <a class="sidebar-link" href="#passport">Passport & Strategy</a>
+    <a class="sidebar-link" href="#guards">Guards</a>
+    <a class="sidebar-link" href="#interceptors">Interceptors</a>
+    <a class="sidebar-link" href="#filters">Exception Filters</a>
+    <a class="sidebar-link" href="#decorators">Custom Decorators</a>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Data & Security</div>
+    <a class="sidebar-link" href="#dtos">DTOs & Validation</a>
+    <a class="sidebar-link" href="#prisma">Prisma ORM</a>
+    <a class="sidebar-link" href="#security">Security Patterns</a>
+    <a class="sidebar-link" href="#envvars">Environment Variables</a>
+    <a class="sidebar-link" href="#summary">Summary</a>
+  </div>
+</aside>
+
+<!-- ═══════════════════════ MAIN ═══════════════════════ -->
+<main>
+
+  <div class="page-header">
+    <div class="badge">Phase 1 — Auth Feature</div>
+    <h1>Backend Concepts</h1>
+    <p>Everything you built in the auth feature, explained from first principles. Read this between sessions to reinforce what you learned by doing.</p>
+  </div>
+
+  <!-- ── 1. MODULES ── -->
+  <section id="modules">
+    <h2><span class="section-number">1</span> Modules</h2>
+    <p>A module is a self-contained unit of your application. Every feature you build lives inside a module. NestJS uses modules to organize code and manage what can be shared between features.</p>
+
+    <pre><code><span class="dec">@Module</span>({
+  imports:     [...],  <span class="cm">// other modules this one depends on</span>
+  controllers: [...],  <span class="cm">// handle HTTP requests</span>
+  providers:   [...],  <span class="cm">// services, strategies, guards</span>
+  exports:     [...],  <span class="cm">// what other modules can use from here</span>
+})
+<span class="kw">export class</span> <span class="type">AuthModule</span> {}</code></pre>
+
+    <div class="callout info">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>Key rule</strong>
+        <p>A module can only use providers declared in its own <code>providers</code> array, or imported from another module via <code>imports</code>. This is how NestJS enforces encapsulation.</p>
+      </div>
+    </div>
+
+    <h3>Global Modules</h3>
+    <p>Adding <code>@Global()</code> makes a module available everywhere without importing it explicitly. You used this for <code>PrismaModule</code> so every module can access the database without adding it to their imports.</p>
+
+    <pre><code><span class="dec">@Global()</span>
+<span class="dec">@Module</span>({ providers: [<span class="type">PrismaService</span>], exports: [<span class="type">PrismaService</span>] })
+<span class="kw">export class</span> <span class="type">PrismaModule</span> {}</code></pre>
+  </section>
+
+  <!-- ── 2. CONTROLLERS ── -->
+  <section id="controllers">
+    <h2><span class="section-number">2</span> Controllers</h2>
+    <p>Controllers handle incoming HTTP requests and return responses. They contain <strong>no business logic</strong> — they just receive input, call a service, and return output.</p>
+
+    <pre><code><span class="dec">@Controller</span>(<span class="str">'auth'</span>)        <span class="cm">// base route prefix → /auth</span>
+<span class="kw">export class</span> <span class="type">AuthController</span> {
+
+  <span class="dec">@Post</span>(<span class="str">'login'</span>)           <span class="cm">// → POST /auth/login</span>
+  <span class="kw">async</span> <span class="fn">login</span>(<span class="dec">@Body</span>() dto: <span class="type">LoginDto</span>) {
+    <span class="kw">return</span> <span class="kw">this</span>.authService.<span class="fn">signIn</span>(dto.email, dto.password);
+  }
+
+  <span class="dec">@Get</span>(<span class="str">'profile/me'</span>)       <span class="cm">// → GET /auth/profile/me</span>
+  <span class="kw">async</span> <span class="fn">me</span>(<span class="dec">@CurrentUser</span>(<span class="str">'userId'</span>) userId: <span class="type">string</span>) {
+    <span class="kw">return</span> <span class="kw">this</span>.authService.<span class="fn">getUserProfile</span>(userId);
+  }
+}</code></pre>
+
+    <div class="callout warning">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <strong>Controller ≠ Business Logic</strong>
+        <p>If you find yourself writing database queries or complex conditions inside a controller, that code belongs in a service instead.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 3. SERVICES ── -->
+  <section id="services">
+    <h2><span class="section-number">3</span> Services & Dependency Injection</h2>
+    <p>Services contain business logic. They are <strong>injectable</strong> — NestJS creates one instance and shares it wherever it's needed.</p>
+
+    <pre><code><span class="dec">@Injectable</span>()
+<span class="kw">export class</span> <span class="type">AuthService</span> {
+  <span class="kw">constructor</span>(
+    <span class="kw">private readonly</span> prisma: <span class="type">PrismaService</span>,
+    <span class="kw">private readonly</span> jwtService: <span class="type">JwtService</span>,
+  ) {}
+}</code></pre>
+
+    <h3>What is Dependency Injection?</h3>
+    <p>DI means your classes don't create their own dependencies — NestJS provides them. You declare what you need in the constructor, and the framework handles the rest.</p>
+
+    <pre><code><span class="cm">// Without DI — you manage everything manually:</span>
+<span class="kw">const</span> service = <span class="kw">new</span> <span class="fn">AuthService</span>(
+  <span class="kw">new</span> <span class="fn">PrismaService</span>(),
+  <span class="kw">new</span> <span class="fn">JwtService</span>(),
+);
+
+<span class="cm">// With DI — NestJS handles it:</span>
+<span class="kw">constructor</span>(<span class="kw">private</span> authService: <span class="type">AuthService</span>) {}</code></pre>
+
+    <div class="callout info">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>Why DI matters</strong>
+        <p>It makes your code testable. In tests, you can inject fake (mock) versions of dependencies instead of real ones. It also keeps classes decoupled — they don't know how their dependencies are built.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4. REQUEST LIFECYCLE ── -->
+  <section id="lifecycle">
+    <h2><span class="section-number">4</span> Request Lifecycle</h2>
+    <p>Every HTTP request passes through these layers in a fixed order. Understanding this is essential for knowing where to put your code.</p>
+
+    <div class="flow">
+      <div class="flow-item">
+        <span class="flow-step">1</span>
+        <span class="flow-label">Middleware</span>
+        <span class="flow-desc">cookie-parser, cors — runs before everything</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">2</span>
+        <span class="flow-label">Guards</span>
+        <span class="flow-desc">JwtAuthGuard, ThrottlerGuard — can reject with 401/429</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">3</span>
+        <span class="flow-label">Interceptors (before)</span>
+        <span class="flow-desc">TransformInterceptor — runs before handler</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">4</span>
+        <span class="flow-label">Pipes</span>
+        <span class="flow-desc">ValidationPipe — validates & transforms DTOs</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">5</span>
+        <span class="flow-label">Controller Handler</span>
+        <span class="flow-desc">Your method runs here</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">6</span>
+        <span class="flow-label">Service</span>
+        <span class="flow-desc">Business logic, DB queries</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">7</span>
+        <span class="flow-label">Interceptors (after)</span>
+        <span class="flow-desc">TransformInterceptor — wraps the response</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">8</span>
+        <span class="flow-label">Exception Filters</span>
+        <span class="flow-desc">HttpExceptionFilter — catches errors, formats them</span>
+      </div>
+    </div>
+
+    <div class="callout success">
+      <div class="callout-icon">✅</div>
+      <div class="callout-body">
+        <strong>Why this matters</strong>
+        <p>Guards run before your controller — they can block the request entirely. Exception filters run last — they catch errors from anywhere above. Interceptors wrap everything — they see both the request going in and the response coming out.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ── 5. PASSWORDS ── -->
+  <section id="passwords">
+    <h2><span class="section-number">5</span> Password Hashing</h2>
+    <p>Never store passwords in plain text. Hashing is a one-way operation — you can verify a password but you can't reverse a hash back to the original.</p>
+
+    <pre><code><span class="kw">import</span> { hash, compare } <span class="kw">from</span> <span class="str">'bcryptjs'</span>;
+
+<span class="cm">// When user registers — hash before storing:</span>
+<span class="kw">const</span> password_hash = <span class="kw">await</span> <span class="fn">hash</span>(password, <span class="num">10</span>);
+<span class="cm">// "MyPassword123!" → "$2b$10$K8ZpkQa..."</span>
+
+<span class="cm">// When user logs in — compare without reversing:</span>
+<span class="kw">const</span> isValid = <span class="kw">await</span> <span class="fn">compare</span>(plaintext, stored_hash);
+<span class="cm">// returns true or false</span></code></pre>
+
+    <h3>What is a Salt?</h3>
+    <p>bcrypt adds random data (a "salt") before hashing. This means two identical passwords produce completely different hashes, preventing attackers from using precomputed tables (rainbow tables) to crack passwords.</p>
+
+    <p>The <code>10</code> in <code>hash(password, 10)</code> is the number of salt rounds. Higher = slower = more secure. 10 is the standard for production.</p>
+
+    <div class="callout danger">
+      <div class="callout-icon">🚫</div>
+      <div class="callout-body">
+        <strong>Never do this</strong>
+        <p>Don't use MD5, SHA1, or SHA256 for passwords — they're fast, which makes them easy to brute force. Only use bcrypt, argon2, or scrypt for passwords.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 6. JWT ── -->
+  <section id="jwt">
+    <h2><span class="section-number">6</span> JWT — JSON Web Tokens</h2>
+    <p>A JWT is a self-contained token that carries information (called claims). It has three parts separated by dots:</p>
+
+    <pre><code>header.payload.signature
+eyJhbGci...  .  eyJzdWIi...  .  SflKxwRJs...</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Part</th><th>Content</th><th>Purpose</th></tr>
+        <tr><td>Header</td><td>Algorithm (HS256)</td><td>Tells how to verify the signature</td></tr>
+        <tr><td>Payload</td><td>{ sub, email, role }</td><td>Data you put in — readable by anyone</td></tr>
+        <tr><td>Signature</td><td>HMAC of header+payload</td><td>Proves the token wasn't tampered with</td></tr>
+      </table>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <strong>The payload is not secret</strong>
+        <p>Anyone can decode the payload — it's just Base64 encoded, not encrypted. The signature is what makes it trustworthy. Never put sensitive data (passwords, card numbers) in a JWT.</p>
+      </div>
+    </div>
+
+    <pre><code><span class="cm">// Signing a token:</span>
+<span class="kw">await</span> jwtService.<span class="fn">signAsync</span>(
+  { sub: userId, email, role },
+  { expiresIn: <span class="str">'1h'</span> }
+);
+
+<span class="cm">// Verifying a token:</span>
+<span class="kw">await</span> jwtService.<span class="fn">verifyAsync</span>(token, { secret: JWT_SECRET });
+<span class="cm">// → throws if invalid or expired</span>
+<span class="cm">// → returns decoded payload if valid</span></code></pre>
+  </section>
+
+  <!-- ── 7. ACCESS VS REFRESH ── -->
+  <section id="tokens">
+    <h2><span class="section-number">7</span> Access vs Refresh Tokens</h2>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th></th><th>Access Token</th><th>Refresh Token</th></tr>
+        <tr><td>TTL</td><td>15min – 1h</td><td>7 – 30 days</td></tr>
+        <tr><td>Stored</td><td>Memory (JS variable)</td><td>httpOnly cookie</td></tr>
+        <tr><td>Sent with</td><td>Every API request</td><td>Only to /auth/refresh</td></tr>
+        <tr><td>Contains</td><td>userId, email, role</td><td>Only userId</td></tr>
+        <tr><td>If stolen</td><td>Attacker has 1h access</td><td>Attacker can get new access tokens</td></tr>
+      </table>
+    </div>
+
+    <h3>Why two tokens?</h3>
+    <p>Short-lived access tokens limit damage if stolen — they expire quickly. Long-lived refresh tokens avoid constant re-login. The refresh token is stored in an httpOnly cookie so JavaScript (and therefore XSS attacks) can never read it.</p>
+  </section>
+
+  <!-- ── 8. TOKEN ROTATION ── -->
+  <section id="rotation">
+    <h2><span class="section-number">8</span> Token Rotation</h2>
+    <p>Every time you use a refresh token, the server deletes it and issues a new one. This is called rotation.</p>
+
+    <div class="flow">
+      <div class="flow-item">
+        <span class="flow-step">1</span>
+        <span class="flow-label">Client sends refresh token</span>
+        <span class="flow-desc">via httpOnly cookie to POST /auth/refresh</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">2</span>
+        <span class="flow-label">Server verifies JWT signature</span>
+        <span class="flow-desc">confirms token is valid and not expired</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">3</span>
+        <span class="flow-label">Server finds hash match in DB</span>
+        <span class="flow-desc">bcrypt.compare() against all stored hashes</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">4</span>
+        <span class="flow-label">Old token deleted from DB</span>
+        <span class="flow-desc">it can never be used again</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">5</span>
+        <span class="flow-label">New token pair issued</span>
+        <span class="flow-desc">new access token + new refresh token</span>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>Why rotation matters</strong>
+        <p>If someone steals a refresh token and uses it, the legitimate user's next refresh attempt will fail — that token was already rotated. This alerts you to a potential breach and the attacker's token becomes useless.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 9. COOKIES ── -->
+  <section id="cookies">
+    <h2><span class="section-number">9</span> Cookie Storage & Security</h2>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th></th><th>localStorage</th><th>httpOnly Cookie</th></tr>
+        <tr><td>Accessible by JS</td><td>✅ Yes</td><td>🚫 No</td></tr>
+        <tr><td>XSS vulnerable</td><td>✅ Yes</td><td>🚫 No</td></tr>
+        <tr><td>CSRF vulnerable</td><td>🚫 No</td><td>⚠️ Yes (mitigated with sameSite)</td></tr>
+        <tr><td>Use for tokens</td><td>🚫 Never</td><td>✅ Refresh tokens only</td></tr>
+      </table>
+    </div>
+
+    <pre><code>response.<span class="fn">cookie</span>(<span class="str">'refresh_token'</span>, token, {
+  httpOnly: <span class="kw">true</span>,    <span class="cm">// JS cannot read this → prevents XSS theft</span>
+  secure: <span class="kw">true</span>,      <span class="cm">// HTTPS only → prevents interception</span>
+  sameSite: <span class="str">'strict'</span>, <span class="cm">// same origin only → prevents CSRF</span>
+  maxAge: <span class="num">7</span> * <span class="num">24</span> * <span class="num">60</span> * <span class="num">60</span> * <span class="num">1000</span>, <span class="cm">// 7 days in ms</span>
+});</code></pre>
+
+    <div class="callout warning">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <strong>cookie-parser is required</strong>
+        <p>Without <code>app.use(cookieParser())</code> in <code>main.ts</code>, <code>request.cookies</code> is <code>undefined</code>. Always register it before testing cookie-based features.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ── 10. PASSPORT ── -->
+  <section id="passport">
+    <h2><span class="section-number">10</span> Passport & JWT Strategy</h2>
+    <p>Passport is an authentication middleware. In NestJS it integrates via strategies — each strategy handles one way of authenticating (JWT, Google OAuth, local credentials, etc.).</p>
+
+    <pre><code><span class="dec">@Injectable</span>()
+<span class="kw">export class</span> <span class="type">JwtStrategy</span> <span class="kw">extends</span> <span class="fn">PassportStrategy</span>(<span class="type">Strategy</span>) {
+  <span class="kw">constructor</span>(<span class="kw">private</span> configService: <span class="type">ConfigService</span>) {
+    <span class="fn">super</span>({
+      jwtFromRequest: <span class="type">ExtractJwt</span>.<span class="fn">fromAuthHeaderAsBearerToken</span>(),
+      secretOrKey: configService.<span class="fn">get</span>(<span class="str">'JWT_SECRET'</span>),
+    });
+  }
+
+  <span class="fn">validate</span>(payload: <span class="kw">any</span>) {
+    <span class="cm">// Called AFTER Passport verifies the token</span>
+    <span class="cm">// payload is already decoded and trusted</span>
+    <span class="kw">return</span> { userId: payload.sub, email: payload.email, role: payload.role };
+    <span class="cm">// return value → attached to request.user</span>
+  }
+}</code></pre>
+
+    <div class="flow">
+      <div class="flow-item">
+        <span class="flow-step">1</span>
+        <span class="flow-label">Request arrives</span>
+        <span class="flow-desc">with Authorization: Bearer &lt;token&gt;</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">2</span>
+        <span class="flow-label">Passport extracts token</span>
+        <span class="flow-desc">via ExtractJwt.fromAuthHeaderAsBearerToken()</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">3</span>
+        <span class="flow-label">Passport verifies signature</span>
+        <span class="flow-desc">using secretOrKey — throws if invalid/expired</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">4</span>
+        <span class="flow-label">validate() called</span>
+        <span class="flow-desc">receives decoded payload { sub, email, role }</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">5</span>
+        <span class="flow-label">Return value → request.user</span>
+        <span class="flow-desc">available in controller via @CurrentUser()</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 11. GUARDS ── -->
+  <section id="guards">
+    <h2><span class="section-number">11</span> Guards</h2>
+    <p>Guards decide whether a request should proceed. They return <code>true</code> to allow or throw an exception to reject. They run before the controller, after middleware.</p>
+
+    <pre><code><span class="dec">@Injectable</span>()
+<span class="kw">export class</span> <span class="type">JwtAuthGuard</span> <span class="kw">extends</span> <span class="fn">AuthGuard</span>(<span class="str">'jwt'</span>) {
+  <span class="kw">constructor</span>(<span class="kw">private</span> reflector: <span class="type">Reflector</span>) { <span class="fn">super</span>(); }
+
+  <span class="fn">canActivate</span>(context: <span class="type">ExecutionContext</span>) {
+    <span class="cm">// Check if route is marked @Public()</span>
+    <span class="kw">const</span> isPublic = <span class="kw">this</span>.reflector.<span class="fn">getAllAndOverride</span>(<span class="str">'isPublic'</span>, [
+      context.<span class="fn">getHandler</span>(),
+      context.<span class="fn">getClass</span>(),
+    ]);
+    <span class="kw">if</span> (isPublic) <span class="kw">return true</span>;         <span class="cm">// skip auth</span>
+    <span class="kw">return super</span>.<span class="fn">canActivate</span>(context);  <span class="cm">// run JWT strategy</span>
+  }
+}</code></pre>
+
+    <h3>Registering Guards Globally</h3>
+    <pre><code><span class="cm">// In app.module.ts — keeps guard inside DI container</span>
+providers: [
+  { provide: <span class="type">APP_GUARD</span>, useClass: <span class="type">JwtAuthGuard</span> },
+  { provide: <span class="type">APP_GUARD</span>, useClass: <span class="type">ThrottlerGuard</span> },
+]
+
+<span class="cm">// NOT this — guard can't inject services like Reflector:</span>
+app.<span class="fn">useGlobalGuards</span>(<span class="kw">new</span> <span class="fn">JwtAuthGuard</span>());</code></pre>
+  </section>
+
+  <!-- ── 12. INTERCEPTORS ── -->
+  <section id="interceptors">
+    <h2><span class="section-number">12</span> Interceptors</h2>
+    <p>Interceptors wrap the request/response cycle. They run before AND after the controller handler, giving them the ability to transform both incoming requests and outgoing responses.</p>
+
+    <pre><code><span class="dec">@Injectable</span>()
+<span class="kw">export class</span> <span class="type">TransformInterceptor</span> <span class="kw">implements</span> <span class="type">NestInterceptor</span> {
+  <span class="fn">intercept</span>(context: <span class="type">ExecutionContext</span>, next: <span class="type">CallHandler</span>): <span class="type">Observable</span>&lt;<span class="kw">any</span>&gt; {
+    <span class="cm">// BEFORE: runs before controller</span>
+
+    <span class="kw">return</span> next.<span class="fn">handle</span>().<span class="fn">pipe</span>(
+      <span class="fn">map</span>(data => {
+        <span class="cm">// AFTER: transforms the response</span>
+        <span class="kw">return</span> { data, success: <span class="kw">true</span>, message: <span class="str">'...'</span> };
+      })
+    );
+  }
+}</code></pre>
+
+    <h3>How Reflector works</h3>
+    <p>Reflector reads metadata that decorators attached to routes. It's how your interceptor knows what message to use for each endpoint.</p>
+
+    <pre><code><span class="cm">// 1. Decorator sets metadata on the route:</span>
+<span class="dec">@ResponseMessage</span>(<span class="str">'User registered successfully'</span>)
+<span class="cm">// internally calls: SetMetadata('response_message', 'User registered successfully')</span>
+
+<span class="cm">// 2. Interceptor reads it:</span>
+<span class="kw">const</span> message = <span class="kw">this</span>.reflector.<span class="fn">get</span>(
+  <span class="str">'response_message'</span>,
+  context.<span class="fn">getHandler</span>()
+);</code></pre>
+  </section>
+
+  <!-- ── 13. FILTERS ── -->
+  <section id="filters">
+    <h2><span class="section-number">13</span> Exception Filters</h2>
+    <p>Filters catch exceptions thrown anywhere in the pipeline and format the error response consistently.</p>
+
+    <pre><code><span class="dec">@Catch</span>(<span class="type">HttpException</span>)
+<span class="kw">export class</span> <span class="type">HttpExceptionFilter</span> <span class="kw">implements</span> <span class="type">ExceptionFilter</span> {
+  <span class="fn">catch</span>(exception: <span class="type">HttpException</span>, host: <span class="type">ArgumentsHost</span>) {
+    <span class="kw">const</span> response = host.<span class="fn">switchToHttp</span>().<span class="fn">getResponse</span>();
+    <span class="kw">const</span> status = exception.<span class="fn">getStatus</span>();
+
+    response.<span class="fn">status</span>(status).<span class="fn">json</span>({
+      statusCode: status,
+      success: <span class="kw">false</span>,
+      message: exception.message,
+      timestamp: <span class="kw">new</span> <span class="fn">Date</span>().<span class="fn">toISOString</span>(),
+    });
+  }
+}</code></pre>
+
+    <div class="callout info">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>Without a filter</strong>
+        <p>NestJS returns its own default error format which you can't control. With a filter, every error in your app has the exact same consistent shape.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 14. DECORATORS ── -->
+  <section id="decorators">
+    <h2><span class="section-number">14</span> Custom Decorators</h2>
+
+    <h3>Parameter Decorators — createParamDecorator</h3>
+    <p>Extract data from the request and inject it directly into controller method parameters.</p>
+
+    <pre><code><span class="kw">export const</span> CurrentUser = <span class="fn">createParamDecorator</span>(
+  (data: <span class="kw">keyof</span> <span class="type">UserPayload</span> | <span class="kw">undefined</span>, ctx: <span class="type">ExecutionContext</span>) => {
+    <span class="kw">const</span> request = ctx.<span class="fn">switchToHttp</span>().<span class="fn">getRequest</span>&lt;{ user: <span class="type">UserPayload</span> }&gt;();
+    <span class="kw">return</span> data ? request.user[data] : request.user;
+  }
+);
+
+<span class="cm">// Usage in controller:</span>
+<span class="kw">async</span> <span class="fn">logout</span>(<span class="dec">@CurrentUser</span>(<span class="str">'userId'</span>) userId: <span class="type">string</span>) {}
+<span class="kw">async</span> <span class="fn">me</span>(<span class="dec">@CurrentUser</span>() user: <span class="type">UserPayload</span>) {}</code></pre>
+
+    <h3>Metadata Decorators — SetMetadata</h3>
+    <p>Attach metadata to a route that guards or interceptors can read via <code>Reflector</code>.</p>
+
+    <pre><code><span class="cm">// Just a flag — no value needed:</span>
+<span class="kw">export const</span> Public = () => <span class="fn">SetMetadata</span>(<span class="str">'isPublic'</span>, <span class="kw">true</span>);
+
+<span class="cm">// With a value:</span>
+<span class="kw">export const</span> ResponseMessage = (msg: <span class="type">string</span>) =>
+  <span class="fn">SetMetadata</span>(<span class="str">'response_message'</span>, msg);</code></pre>
+  </section>
+
+  <hr />
+
+  <!-- ── 15. DTOs ── -->
+  <section id="dtos">
+    <h2><span class="section-number">15</span> DTOs & Validation</h2>
+    <p>DTO (Data Transfer Object) defines the expected shape of incoming request data. <code>ValidationPipe</code> automatically validates incoming requests against the DTO before they reach your controller.</p>
+
+    <pre><code><span class="kw">export class</span> <span class="type">RegisterDto</span> {
+  <span class="dec">@IsEmail</span>()
+  email: <span class="type">string</span>;
+
+  <span class="dec">@MinLength</span>(<span class="num">8</span>)
+  <span class="dec">@Matches</span>(<span class="str">/^(?=.*\d)(?=.*[!@#$%^&*])/</span>, {
+    message: <span class="str">'Must contain a number and special character'</span>
+  })
+  password: <span class="type">string</span>;
+}</code></pre>
+
+    <p><code>ValidationPipe</code> with <code>whitelist: true</code> also strips any extra fields not defined in the DTO — protecting you from unexpected data in the request body.</p>
+  </section>
+
+  <!-- ── 16. PRISMA ── -->
+  <section id="prisma">
+    <h2><span class="section-number">16</span> Prisma ORM</h2>
+    <p>Prisma is a type-safe database client. It generates TypeScript types from your schema, so you get full autocomplete and type checking on every query.</p>
+
+    <pre><code><span class="cm">// Find with relation (JOIN):</span>
+<span class="kw">const</span> user = <span class="kw">await</span> prisma.user.<span class="fn">findUnique</span>({
+  where: { id: userId },
+  include: { refresh_tokens: <span class="kw">true</span> },
+});
+
+<span class="cm">// Exclude a field from the result:</span>
+<span class="kw">const</span> user = <span class="kw">await</span> prisma.user.<span class="fn">findUnique</span>({
+  where: { id: userId },
+  omit: { password_hash: <span class="kw">true</span> },  <span class="cm">// actually removed from the object</span>
+});
+
+<span class="cm">// Delete all matching records:</span>
+<span class="kw">await</span> prisma.refreshToken.<span class="fn">deleteMany</span>({
+  where: { user_id: userId }
+});</code></pre>
+
+    <div class="callout danger">
+      <div class="callout-icon">🚫</div>
+      <div class="callout-body">
+        <strong>Cast ≠ Omit</strong>
+        <p><code>user as Omit&lt;User, 'password_hash'&gt;</code> is a lie to TypeScript — the field is still in the object and still sent to the client. Use Prisma's <code>omit</code> option to actually remove the field from the query result.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 17. SECURITY ── -->
+  <section id="security">
+    <h2><span class="section-number">17</span> Security Patterns</h2>
+
+    <h3>User Enumeration Prevention</h3>
+    <p>Never reveal which field was wrong on login. Always return the same generic message.</p>
+
+    <pre><code><span class="cm">// ❌ Reveals which emails exist in your system:</span>
+<span class="kw">if</span> (!user) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Email not found'</span>);
+<span class="kw">if</span> (!valid) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Wrong password'</span>);
+
+<span class="cm">// ✅ Reveals nothing useful to an attacker:</span>
+<span class="kw">throw new</span> <span class="fn">HttpException</span>(<span class="str">'Invalid credentials'</span>, <span class="num">401</span>);</code></pre>
+
+    <h3>Never Store Raw Tokens</h3>
+    <pre><code><span class="cm">// ✅ Hash before storing:</span>
+<span class="kw">const</span> token_hash = <span class="kw">await</span> <span class="fn">hash</span>(refresh_token, <span class="num">10</span>);
+<span class="kw">await</span> prisma.refreshToken.<span class="fn">create</span>({ data: { token_hash } });
+
+<span class="cm">// ✅ Compare to verify:</span>
+<span class="kw">await</span> <span class="fn">compare</span>(incoming_token, stored_hash);</code></pre>
+
+    <h3>Rate Limiting</h3>
+    <pre><code><span class="cm">// Stricter limit on auth endpoints:</span>
+<span class="dec">@Throttle</span>({ short: { ttl: <span class="num">300_000</span>, limit: <span class="num">10</span> } })
+<span class="cm">// → max 10 attempts per 5 minutes</span>
+<span class="cm">// → returns HTTP 429 when exceeded</span></code></pre>
+  </section>
+
+  <!-- ── 18. ENV VARS ── -->
+  <section id="envvars">
+    <h2><span class="section-number">18</span> Environment Variables</h2>
+    <p>Never hardcode secrets in your code. Use environment variables for anything that changes between environments or that must be kept private.</p>
+
+    <pre><code><span class="cm"># .env</span>
+JWT_SECRET=your_long_random_secret
+JWT_EXPIRES_IN=1h
+JWT_REFRESH_SECRET=another_long_secret
+JWT_REFRESH_EXPIRES_IN=7d
+DATABASE_URL=postgresql://...</code></pre>
+
+    <pre><code><span class="cm">// getOrThrow preferred for required variables:</span>
+configService.<span class="fn">getOrThrow</span>(<span class="str">'JWT_SECRET'</span>)
+<span class="cm">// → returns string or throws at startup</span>
+<span class="cm">// → fail fast rather than failing silently later</span></code></pre>
+
+    <div class="callout warning">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <strong>CWD matters</strong>
+        <p>ConfigModule looks for <code>.env</code> in the current working directory when the process starts. In a Turborepo, that's the app's own folder (<code>apps/api/</code>). Put your <code>.env</code> there.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ── SUMMARY ── -->
+  <section id="summary">
+    <h2><span class="section-number">✓</span> Summary — What You Built</h2>
+    <p>A complete, production-grade authentication system with the following endpoints:</p>
+
+    <div class="endpoint-grid">
+      <div class="endpoint-card">
+        <span class="method post">POST</span>
+        <div>
+          <div class="endpoint-path">/auth/register</div>
+          <div class="endpoint-desc">Create user, hash password, issue JWT pair, set refresh cookie</div>
+        </div>
+      </div>
+      <div class="endpoint-card">
+        <span class="method post">POST</span>
+        <div>
+          <div class="endpoint-path">/auth/login</div>
+          <div class="endpoint-desc">Verify credentials, issue JWT pair, set refresh cookie</div>
+        </div>
+      </div>
+      <div class="endpoint-card">
+        <span class="method post">POST</span>
+        <div>
+          <div class="endpoint-path">/auth/logout</div>
+          <div class="endpoint-desc">Delete all refresh tokens from DB, clear cookie</div>
+        </div>
+      </div>
+      <div class="endpoint-card">
+        <span class="method post">POST</span>
+        <div>
+          <div class="endpoint-path">/auth/refresh</div>
+          <div class="endpoint-desc">Verify + rotate refresh token, issue new access token</div>
+        </div>
+      </div>
+      <div class="endpoint-card">
+        <span class="method get">GET</span>
+        <div>
+          <div class="endpoint-path">/auth/profile/me</div>
+          <div class="endpoint-desc">Return current user profile without password_hash</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Security layer applied</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Concern</th><th>Solution</th></tr>
+        <tr><td>Password storage</td><td>bcrypt with 10 salt rounds</td></tr>
+        <tr><td>Refresh token storage</td><td>Hashed with bcrypt before DB storage</td></tr>
+        <tr><td>Access token storage</td><td>Memory only — never localStorage</td></tr>
+        <tr><td>Refresh token delivery</td><td>httpOnly, secure, sameSite=strict cookie</td></tr>
+        <tr><td>Token theft mitigation</td><td>Refresh token rotation on every use</td></tr>
+        <tr><td>Brute force</td><td>10 attempts per 5 min on login/register</td></tr>
+        <tr><td>User enumeration</td><td>Always return "Invalid credentials"</td></tr>
+        <tr><td>Route protection</td><td>Global JwtAuthGuard + @Public() escape hatch</td></tr>
+        <tr><td>Response consistency</td><td>TransformInterceptor + HttpExceptionFilter</td></tr>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  // Highlight active sidebar link on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const links = document.querySelectorAll('.sidebar-link');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`.sidebar-link[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
