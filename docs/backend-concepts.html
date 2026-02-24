@@ -441,6 +441,8 @@
     <a class="sidebar-link" href="#interceptors">Interceptors</a>
     <a class="sidebar-link" href="#filters">Exception Filters</a>
     <a class="sidebar-link" href="#decorators">Custom Decorators</a>
+    <a class="sidebar-link" href="#execution-context">ExecutionContext</a>
+    <a class="sidebar-link" href="#reflector">Reflector & Metadata</a>
   </div>
 
   <div class="sidebar-section">
@@ -1178,9 +1180,159 @@ app.<span class="fn">useGlobalGuards</span>(<span class="kw">new</span> <span cl
 
   <hr />
 
-  <!-- ── 15. DTOs ── -->
+  <!-- ── 15. EXECUTION CONTEXT ── -->
+  <section id="execution-context">
+    <h2><span class="section-number">15</span> ExecutionContext</h2>
+
+    <p>Every guard, interceptor, and <code>createParamDecorator</code> receives an <code>ExecutionContext</code>. Think of it as a wrapper around the current request — but deliberately generic, because NestJS works with more than just HTTP.</p>
+
+    <h3>Why it's generic</h3>
+    <p>NestJS can handle multiple transport protocols, not just HTTP:</p>
+
+    <pre><code>HTTP (REST APIs)     ← what you're building
+WebSockets           ← real-time connections
+gRPC                 ← inter-service communication
+Microservices        ← TCP, Redis pub/sub, RabbitMQ</code></pre>
+
+    <p>The same guard or interceptor might protect both an HTTP route and a WebSocket event. <code>ExecutionContext</code> is the abstraction that makes that possible — it doesn't assume anything about the transport layer.</p>
+
+    <h3>switchToHttp() and getRequest()</h3>
+    <p>Since the context is generic, you must first declare which transport you're working with, then get the objects for that transport. It's always a two-step process.</p>
+
+    <pre><code><span class="cm">// Step 1 — declare the transport:</span>
+context.<span class="fn">switchToHttp</span>()    <span class="cm">// "I know this is HTTP — give me HTTP tools"</span>
+
+<span class="cm">// Step 2 — get what you need:</span>
+  .<span class="fn">getRequest</span>()           <span class="cm">// → Express req object (user, body, cookies, params, headers)</span>
+  .<span class="fn">getResponse</span>()          <span class="cm">// → Express res object (to set cookies, headers, etc.)</span>
+
+<span class="cm">// In practice, you chain them:</span>
+<span class="kw">const</span> { user, cookies, body } = context.<span class="fn">switchToHttp</span>().<span class="fn">getRequest</span>();</code></pre>
+
+    <div class="callout info">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>Why two steps instead of one?</strong>
+        <p>If NestJS gave you <code>getRequest()</code> directly on the context, it would have to assume HTTP. By going through <code>switchToHttp()</code> first, you explicitly declare the transport — and TypeScript gives you the correct HTTP-specific types in return. On a WebSocket context you'd call <code>switchToWs()</code> instead.</p>
+      </div>
+    </div>
+
+    <h3>getHandler() and getClass()</h3>
+    <p>These return the actual TypeScript method and class being called — which is what the <code>Reflector</code> needs to look up metadata attached by decorators.</p>
+
+    <pre><code>context.<span class="fn">getHandler</span>()  <span class="cm">// → the controller METHOD being called (e.g. createProduct)</span>
+context.<span class="fn">getClass</span>()    <span class="cm">// → the controller CLASS containing it (e.g. ProductsController)</span>
+
+<span class="cm">// Guards pass both to Reflector so it can check method-level AND class-level metadata:</span>
+<span class="kw">const</span> roles = reflector.<span class="fn">getAllAndOverride</span>(<span class="str">'roles'</span>, [
+  context.<span class="fn">getHandler</span>(),  <span class="cm">// check the method first</span>
+  context.<span class="fn">getClass</span>(),    <span class="cm">// fall back to the class</span>
+]);</code></pre>
+
+    <h3>Where you've already used ExecutionContext</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Where</th><th>What you did with it</th></tr>
+        <tr><td><code>JwtAuthGuard</code></td><td>Called <code>getHandler()</code> + <code>getClass()</code> to check for <code>@Public()</code> metadata</td></tr>
+        <tr><td><code>RolesGuard</code></td><td>Called <code>switchToHttp().getRequest()</code> to read <code>user.role</code></td></tr>
+        <tr><td><code>@CurrentUser()</code></td><td>Called <code>switchToHttp().getRequest()</code> to extract <code>request.user</code></td></tr>
+        <tr><td><code>TransformInterceptor</code></td><td>Called <code>getHandler()</code> to read the <code>@ResponseMessage()</code> metadata</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ── 16. REFLECTOR & METADATA ── -->
+  <section id="reflector">
+    <h2><span class="section-number">16</span> Reflector & Metadata</h2>
+
+    <p><code>Reflector</code> is the tool that reads metadata attached to routes by decorators. It is the bridge between your decorator and your guard or interceptor. Without it, decorators like <code>@Public()</code> and <code>@Roles()</code> would be useless labels that nothing reads.</p>
+
+    <h3>The full triangle</h3>
+    <p>Every metadata-driven feature in NestJS follows the same three-part pattern:</p>
+
+    <pre><code><span class="cm">① Decorator sets metadata on the route:</span>
+<span class="dec">@Roles</span>(<span class="type">Role</span>.ADMIN)          <span class="cm">// → SetMetadata('roles', [Role.ADMIN])</span>
+<span class="dec">@Get</span>(<span class="str">'admin/products'</span>)
+
+<span class="cm">② Reflector reads it inside the guard:</span>
+<span class="kw">const</span> roles = reflector.<span class="fn">getAllAndOverride</span>(<span class="str">'roles'</span>, [
+  context.<span class="fn">getHandler</span>(),
+  context.<span class="fn">getClass</span>(),
+]);
+<span class="cm">// → [Role.ADMIN]</span>
+
+<span class="cm">③ Guard acts on what it found:</span>
+<span class="kw">if</span> (!roles.<span class="fn">includes</span>(user.role)) <span class="kw">throw new</span> <span class="fn">ForbiddenException</span>();</code></pre>
+
+    <div class="callout warning">
+      <div class="callout-icon">🔑</div>
+      <div class="callout-body">
+        <strong>The decorator does nothing at runtime</strong>
+        <p>A decorator like <code>@Roles(Role.ADMIN)</code> is just a label. It doesn't block anything by itself. The guard is what enforces the rule — the decorator just tells the guard what rule to apply. If you add <code>@Roles()</code> but never have a guard reading it, nothing happens.</p>
+      </div>
+    </div>
+
+    <h3>get vs getAllAndOverride</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Method</th><th>What it does</th><th>When to use</th></tr>
+        <tr>
+          <td><code>reflector.get(key, target)</code></td>
+          <td>Reads from a single target only</td>
+          <td>When you only care about one level (method or class)</td>
+        </tr>
+        <tr>
+          <td><code>reflector.getAllAndOverride(key, [handler, class])</code></td>
+          <td>Checks method first — if found, returns it. If not, falls back to class.</td>
+          <td>Most common. Method-level wins over class-level.</td>
+        </tr>
+        <tr>
+          <td><code>reflector.getAll(key, [handler, class])</code></td>
+          <td>Returns values from both targets merged into one array</td>
+          <td>When you want to accumulate metadata from both levels</td>
+        </tr>
+      </table>
+    </div>
+
+    <pre><code><span class="cm">// getAllAndOverride — method-level wins:</span>
+<span class="dec">@Roles</span>(<span class="type">Role</span>.ADMIN)                 <span class="cm">// class-level default</span>
+<span class="kw">export class</span> <span class="type">ProductsController</span> {
+
+  <span class="dec">@Roles</span>(<span class="type">Role</span>.CUSTOMER)            <span class="cm">// method-level — overrides the class</span>
+  <span class="dec">@Get</span>(<span class="str">'public-list'</span>)
+  <span class="kw">async</span> <span class="fn">list</span>() {}                  <span class="cm">// → guard sees [Role.CUSTOMER]</span>
+
+  <span class="dec">@Delete</span>(<span class="str">':id'</span>)
+  <span class="kw">async</span> <span class="fn">delete</span>() {}               <span class="cm">// → no method metadata → falls back to [Role.ADMIN]</span>
+}</code></pre>
+
+    <h3>Reflector must be injected, not instantiated</h3>
+    <p><code>Reflector</code> is a NestJS service that lives inside the DI container. You cannot <code>new</code> it yourself — it needs to be injected:</p>
+
+    <pre><code><span class="cm">// ✅ Correct — NestJS injects it for you:</span>
+<span class="kw">constructor</span>(<span class="kw">private</span> reflector: <span class="type">Reflector</span>) {}
+
+<span class="cm">// ❌ Wrong — won't have access to the route's metadata:</span>
+<span class="kw">const</span> reflector = <span class="kw">new</span> <span class="fn">Reflector</span>();</code></pre>
+
+    <h3>Your decorators recap</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Decorator</th><th>Key</th><th>Value</th><th>Read by</th></tr>
+        <tr><td><code>@Public()</code></td><td><code>'isPublic'</code></td><td><code>true</code></td><td><code>JwtAuthGuard</code></td></tr>
+        <tr><td><code>@Roles()</code></td><td><code>'roles'</code></td><td><code>Role[]</code></td><td><code>RolesGuard</code></td></tr>
+        <tr><td><code>@ResponseMessage()</code></td><td><code>'response_message'</code></td><td><code>string</code></td><td><code>TransformInterceptor</code></td></tr>
+      </table>
+    </div>
+  </section>
+
+  <hr />
+
+  <!-- ── 17. DTOs ── -->
   <section id="dtos">
-    <h2><span class="section-number">15</span> DTOs & Validation</h2>
+    <h2><span class="section-number">17</span> DTOs & Validation</h2>
     <p>DTO (Data Transfer Object) defines the expected shape of incoming request data. <code>ValidationPipe</code> automatically validates incoming requests against the DTO before they reach your controller.</p>
 
     <pre><code><span class="kw">export class</span> <span class="type">RegisterDto</span> {
@@ -1199,7 +1351,7 @@ app.<span class="fn">useGlobalGuards</span>(<span class="kw">new</span> <span cl
 
   <!-- ── 16. PRISMA ── -->
   <section id="prisma">
-    <h2><span class="section-number">16</span> Prisma ORM</h2>
+    <h2><span class="section-number">18</span> Prisma ORM</h2>
     <p>Prisma is a type-safe database client. It generates TypeScript types from your schema, so you get full autocomplete and type checking on every query.</p>
 
     <pre><code><span class="cm">// Find with relation (JOIN):</span>
@@ -1230,7 +1382,7 @@ app.<span class="fn">useGlobalGuards</span>(<span class="kw">new</span> <span cl
 
   <!-- ── 17. SECURITY ── -->
   <section id="security">
-    <h2><span class="section-number">17</span> Security Patterns</h2>
+    <h2><span class="section-number">19</span> Security Patterns</h2>
 
     <h3>User Enumeration Prevention</h3>
     <p>Never reveal which field was wrong on login. Always return the same generic message.</p>
@@ -1259,7 +1411,7 @@ app.<span class="fn">useGlobalGuards</span>(<span class="kw">new</span> <span cl
 
   <!-- ── 18. ENV VARS ── -->
   <section id="envvars">
-    <h2><span class="section-number">18</span> Environment Variables</h2>
+    <h2><span class="section-number">20</span> Environment Variables</h2>
     <p>Never hardcode secrets in your code. Use environment variables for anything that changes between environments or that must be kept private.</p>
 
     <pre><code><span class="cm"># .env</span>

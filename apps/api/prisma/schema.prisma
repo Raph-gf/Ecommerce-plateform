@@ -11,6 +11,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+
 }
 
 // ============================================================
@@ -369,7 +370,7 @@ model Order {
   id                       String      @id @default(uuid())
   order_number             String      @unique
   user_id                  String?
-  user                     User?       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user                     User?       @relation(fields: [user_id], references: [id], onDelete: SetNull)
   coupon_id                String?
   coupon                   Coupon?     @relation(fields: [coupon_id], references: [id], onDelete: SetNull)
   stripe_payment_intent_id String?

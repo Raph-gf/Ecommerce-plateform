@@ -8,6 +8,7 @@ import { UsersModule } from './modules/users/users.module.js';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { RoleAuthGuard } from './common/guards/role-auth.guard.js';
 
 @Module({
   imports: [
@@ -43,6 +44,10 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RoleAuthGuard,
     },
   ],
 })
