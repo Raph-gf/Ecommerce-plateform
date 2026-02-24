@@ -408,6 +408,16 @@
   </div>
 
   <div class="sidebar-section">
+    <div class="sidebar-section-title">Philosophy</div>
+    <a class="sidebar-link" href="#philosophy-why">Why NestJS exists</a>
+    <a class="sidebar-link" href="#philosophy-think">How to think in NestJS</a>
+    <a class="sidebar-link" href="#philosophy-layers">The layer system</a>
+    <a class="sidebar-link" href="#philosophy-di">Dependency Injection mindset</a>
+    <a class="sidebar-link" href="#philosophy-decorators">Decorators as instructions</a>
+    <a class="sidebar-link" href="#philosophy-rules">The golden rules</a>
+  </div>
+
+  <div class="sidebar-section">
     <div class="sidebar-section-title">NestJS Core</div>
     <a class="sidebar-link" href="#modules">Modules</a>
     <a class="sidebar-link" href="#controllers">Controllers</a>
@@ -451,6 +461,238 @@
     <h1>Backend Concepts</h1>
     <p>Everything you built in the auth feature, explained from first principles. Read this between sessions to reinforce what you learned by doing.</p>
   </div>
+
+  <!-- ══════════════════ PHILOSOPHY ══════════════════ -->
+
+  <section id="philosophy-why">
+    <h2><span class="section-number">★</span> Why NestJS Exists</h2>
+    <p>Before NestJS, Node.js backends were built with Express. Express is powerful but gives you <strong>zero structure</strong>. You can put your database query in a route handler, your business logic in a middleware, your config in a random file. It works, but as the app grows it becomes a mess that only the original author can understand.</p>
+
+    <p>NestJS was created to solve this. It asks the question: <em>"What if we enforced a clear structure from day one?"</em> It takes inspiration from Angular (the frontend framework) and brings the same architectural discipline to the backend.</p>
+
+    <div class="callout info">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>The core promise of NestJS</strong>
+        <p>Any NestJS developer can open any NestJS project and immediately know where to find things — because the structure is always the same. Controllers handle HTTP. Services handle logic. Modules organize features. This is not a suggestion, it's the architecture.</p>
+      </div>
+    </div>
+
+    <p>Think of it this way: Express is like an empty plot of land. You can build anything, any way you want. NestJS is like a building with a fixed floor plan — you know exactly where the kitchen, bedroom, and bathroom go. Less freedom, but a much better home.</p>
+  </section>
+
+  <section id="philosophy-think">
+    <h2><span class="section-number">★</span> How to Think in NestJS</h2>
+
+    <p>The biggest mental shift coming from Express or Laravel is this: <strong>stop thinking in files, start thinking in responsibilities.</strong></p>
+
+    <p>Every time you write code, ask yourself one question:</p>
+
+    <div class="callout warning">
+      <div class="callout-icon">🤔</div>
+      <div class="callout-body">
+        <strong>"What is the responsibility of this code?"</strong>
+        <p>Is it handling an HTTP request? → Controller.<br/>
+        Is it business logic or a database query? → Service.<br/>
+        Is it organizing a feature? → Module.<br/>
+        Is it deciding who can access a route? → Guard.<br/>
+        Is it transforming the response shape? → Interceptor.<br/>
+        Is it catching errors? → Filter.</p>
+      </div>
+    </div>
+
+    <p>In Laravel, you might write a database query directly in a controller. In NestJS, that would be wrong — even if it works. The database query belongs in a service. The controller only calls the service and returns the result. This isn't just style — it has real consequences:</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>If logic is in the right place...</th><th>You can...</th></tr>
+        <tr><td>Business logic in a Service</td><td>Unit test it without HTTP, without a database</td></tr>
+        <tr><td>Auth logic in a Guard</td><td>Apply it to any route with one decorator</td></tr>
+        <tr><td>Response transformation in Interceptor</td><td>Change API response shape for the whole app in one place</td></tr>
+        <tr><td>Error handling in a Filter</td><td>Get consistent error responses everywhere automatically</td></tr>
+      </table>
+    </div>
+
+    <h3>The mental model in one sentence</h3>
+    <p>NestJS is a system of <strong>specialized workers</strong>, each with one job. A request walks through the assembly line, and each worker does their specific task. Your job as a developer is to put the right code in the right worker.</p>
+  </section>
+
+  <section id="philosophy-layers">
+    <h2><span class="section-number">★</span> The Layer System</h2>
+    <p>NestJS has a strict concept of layers. Each layer only communicates with the layer directly next to it. You never skip layers.</p>
+
+    <pre><code>HTTP Request
+     ↓
+Controller          ← knows about HTTP (requests, responses, cookies, headers)
+     ↓
+Service             ← knows about business rules (NO knowledge of HTTP)
+     ↓
+Repository/Prisma   ← knows about the database (NO knowledge of business rules)
+     ↓
+Database</code></pre>
+
+    <div class="callout danger">
+      <div class="callout-icon">🚫</div>
+      <div class="callout-body">
+        <strong>Never skip layers</strong>
+        <p>A controller should never query the database directly. A service should never know about HTTP status codes or cookies. A Prisma query should never contain business logic. When you skip a layer, you create code that's impossible to test and painful to change.</p>
+      </div>
+    </div>
+
+    <h3>What "no knowledge of HTTP" means in practice</h3>
+    <p>Look at your <code>AuthService</code>. It throws <code>HttpException</code> with status codes. Strictly speaking, this is a violation — a service shouldn't know about HTTP. But in NestJS it's a widely accepted pragmatic choice because <code>HttpException</code> is just a way to signal error types. The important rule is: your service should never touch <code>request</code> or <code>response</code> objects directly. Those belong only in controllers.</p>
+  </section>
+
+  <section id="philosophy-di">
+    <h2><span class="section-number">★</span> The Dependency Injection Mindset</h2>
+    <p>Dependency Injection is the heart of NestJS. It sounds complicated but the idea is simple:</p>
+
+    <div class="callout success">
+      <div class="callout-icon">✅</div>
+      <div class="callout-body">
+        <strong>The DI principle</strong>
+        <p>A class should never create its own dependencies. It should declare what it needs and let the framework provide them.</p>
+      </div>
+    </div>
+
+    <p>Why does this matter? Because when a class creates its own dependencies, you can never replace them. Consider:</p>
+
+    <pre><code><span class="cm">// Without DI — impossible to test, tightly coupled:</span>
+<span class="kw">class</span> <span class="type">AuthService</span> {
+  <span class="kw">private</span> prisma = <span class="kw">new</span> <span class="fn">PrismaService</span>();  <span class="cm">// hardcoded — can never be swapped</span>
+
+  <span class="kw">async</span> <span class="fn">register</span>() {
+    <span class="kw">await</span> <span class="kw">this</span>.prisma.user.<span class="fn">create</span>(...);  <span class="cm">// always hits real DB</span>
+  }
+}
+
+<span class="cm">// With DI — testable, loosely coupled:</span>
+<span class="kw">class</span> <span class="type">AuthService</span> {
+  <span class="kw">constructor</span>(<span class="kw">private</span> prisma: <span class="type">PrismaService</span>) {}  <span class="cm">// injected from outside</span>
+
+  <span class="kw">async</span> <span class="fn">register</span>() {
+    <span class="kw">await</span> <span class="kw">this</span>.prisma.user.<span class="fn">create</span>(...);  <span class="cm">// uses whatever was injected</span>
+  }
+}
+<span class="cm">// In tests: inject a fake PrismaService → no real DB needed</span>
+<span class="cm">// In production: NestJS injects the real PrismaService automatically</span></code></pre>
+
+    <p>This is exactly why your unit tests work — you inject <code>mockPrismaService</code> instead of the real one, and <code>AuthService</code> doesn't know the difference. It just uses whatever it was given.</p>
+
+    <h3>How NestJS manages DI</h3>
+    <p>NestJS maintains an <strong>IoC container</strong> (Inversion of Control). When the app starts, it reads all your modules and builds a map of every provider and what it needs. Then it creates instances in the right order and wires everything together. You never call <code>new AuthService()</code> yourself — NestJS does it.</p>
+
+    <pre><code><span class="cm">// You declare the dependency:</span>
+<span class="kw">constructor</span>(<span class="kw">private readonly</span> authService: <span class="type">AuthService</span>) {}
+
+<span class="cm">// NestJS reads this and thinks:</span>
+<span class="cm">// "AuthController needs AuthService."</span>
+<span class="cm">// "AuthService needs PrismaService, JwtService, ConfigService."</span>
+<span class="cm">// "I'll create them all in the right order and wire them up."</span></code></pre>
+  </section>
+
+  <section id="philosophy-decorators">
+    <h2><span class="section-number">★</span> Decorators Are Instructions, Not Logic</h2>
+    <p>Decorators are one of the most confusing parts of NestJS for beginners. Here's the key insight:</p>
+
+    <div class="callout info">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>A decorator doesn't do anything by itself</strong>
+        <p>It attaches metadata (information) to a class, method, or parameter. NestJS reads that metadata at startup or at request time and acts on it.</p>
+      </div>
+    </div>
+
+    <p>Think of decorators as sticky notes you put on your code. The sticky note says "this is a controller" or "this route is public" or "inject the current user here". NestJS reads all the sticky notes and wires everything up accordingly.</p>
+
+    <pre><code><span class="dec">@Controller</span>(<span class="str">'auth'</span>)
+<span class="cm">// Sticky note: "This class handles routes starting with /auth"</span>
+
+<span class="dec">@Public</span>()
+<span class="cm">// Sticky note: "This route doesn't need authentication"</span>
+<span class="cm">// The JwtAuthGuard reads this note and skips auth</span>
+
+<span class="dec">@CurrentUser</span>(<span class="str">'userId'</span>)
+<span class="cm">// Sticky note: "Inject request.user.userId into this parameter"</span>
+<span class="cm">// createParamDecorator reads this and extracts the value</span>
+
+<span class="dec">@ResponseMessage</span>(<span class="str">'User registered successfully'</span>)
+<span class="cm">// Sticky note: "Use this as the message in the response"</span>
+<span class="cm">// TransformInterceptor reads this note via Reflector</span></code></pre>
+
+    <p>This is why <code>Reflector</code> exists — it's the tool that reads the sticky notes (metadata) at runtime.</p>
+
+    <h3>Decorator execution order</h3>
+    <p>When you stack multiple decorators, they execute bottom-up:</p>
+    <pre><code><span class="dec">@Public</span>()            <span class="cm">// ← executes second</span>
+<span class="dec">@Post</span>(<span class="str">'login'</span>)       <span class="cm">// ← executes first</span>
+<span class="kw">async</span> <span class="fn">login</span>() {}</code></pre>
+    <p>In practice this rarely matters for NestJS decorators, but it's good to know.</p>
+  </section>
+
+  <section id="philosophy-rules">
+    <h2><span class="section-number">★</span> The Golden Rules</h2>
+    <p>If you internalize these six rules, you will always know where to put your code in NestJS:</p>
+
+    <div class="flow">
+      <div class="flow-item">
+        <span class="flow-step">1</span>
+        <span class="flow-label">Controllers only route</span>
+        <span class="flow-desc">Receive request → call service → return result. No business logic, no DB queries.</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">2</span>
+        <span class="flow-label">Services own the logic</span>
+        <span class="flow-desc">All business rules, all DB queries, all decisions live here. No HTTP knowledge.</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">3</span>
+        <span class="flow-label">Modules define boundaries</span>
+        <span class="flow-desc">A module owns its providers. Other modules can only use what's explicitly exported.</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">4</span>
+        <span class="flow-label">Never new() your dependencies</span>
+        <span class="flow-desc">Always declare them in the constructor and let NestJS inject them.</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">5</span>
+        <span class="flow-label">Cross-cutting concerns go in guards/interceptors/filters</span>
+        <span class="flow-desc">Auth, logging, response shaping, error handling — once, globally, not in every controller.</span>
+      </div>
+      <div class="flow-item">
+        <span class="flow-step">6</span>
+        <span class="flow-label">Decorators are metadata, not magic</span>
+        <span class="flow-desc">They attach information. Something else (a guard, interceptor, or NestJS itself) reads and acts on it.</span>
+      </div>
+    </div>
+
+    <div class="callout success">
+      <div class="callout-icon">🎯</div>
+      <div class="callout-body">
+        <strong>The question to always ask</strong>
+        <p>When you don't know where to put something, ask: "What is the single responsibility of this code?" The answer tells you exactly which NestJS concept it belongs to.</p>
+      </div>
+    </div>
+
+    <h3>How this connects to what you built</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>What you built</th><th>Why it's in that place</th></tr>
+        <tr><td>Login logic in AuthService</td><td>Business logic → service</td></tr>
+        <tr><td>Cookie setting in AuthController</td><td>HTTP concern → controller</td></tr>
+        <tr><td>JWT verification in JwtStrategy</td><td>Auth mechanism → strategy (a type of provider)</td></tr>
+        <tr><td>Route protection in JwtAuthGuard</td><td>Access control → guard</td></tr>
+        <tr><td>Response wrapping in TransformInterceptor</td><td>Cross-cutting output transform → interceptor</td></tr>
+        <tr><td>Error formatting in HttpExceptionFilter</td><td>Cross-cutting error handling → filter</td></tr>
+        <tr><td>@Public() and @CurrentUser() decorators</td><td>Metadata/parameter extraction → custom decorators</td></tr>
+      </table>
+    </div>
+
+    <p>Every decision you made while building the auth feature follows these rules. You were applying the NestJS philosophy even before you understood it explicitly.</p>
+  </section>
+
+  <hr />
 
   <!-- ── 1. MODULES ── -->
   <section id="modules">
